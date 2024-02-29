@@ -1,0 +1,218 @@
+* Intialization
+
+** Constants
+
+- Created at compile time.
+- Can only be numbers, characters, strings or booleans.
+- Enumerated constants are created using the *iota* enumerator.
+
+#+begin_src go :imports '("fmt") :results output :exports both
+  type Weekday int
+
+  const (
+          Sunday Weekday = iota + 1
+          Monday
+          Tuesday
+  )
+
+  fmt.Printf("%v\n", Sunday)
+  fmt.Printf("%v\n", Tuesday)
+#+end_src
+
+#+RESULTS:
+: 1
+: 3
+
+** Variables
+
+Variables can be initialized just like constants but the initializer
+can be a general expression computed at run time.
+
+#+begin_src go :imports '("fmt" "os") :results output :exports both
+var (
+    home   = os.Getenv("HOME")
+    user   = os.Getenv("USER")
+    gopath = os.Getenv("GOPATH")
+)
+
+fmt.Printf("%v\n", home)
+fmt.Printf("%v\n", user)
+fmt.Printf("%v\n", gopath)
+#+end_src
+
+#+RESULTS:
+: /home/sibi
+: sibi
+
+** The init function
+
+- Each source file can define its own niladic *init* function to set
+  up whatever state is required.
+- ~init~ is called after all the variable declarations in the package
+  have evaluated their initializers, and those are evaluated only
+  after all the imported packages have been initialized.
+
+#+begin_src go :imports '("fmt") :results output :exports both
+  func init() {
+          fmt.Printf("Inside init\n");
+  }
+
+  func main() {
+          fmt.Printf("hello world\n");
+  }
+#+end_src
+
+#+RESULTS:
+: Inside init
+: hello world
+
+* Methods
+
+** Pointers vs Value
+
+Example of a value method:
+
+#+begin_src go :imports '("fmt") :results output :exports both
+  type Weekday int
+
+  const (
+          Sunday Weekday = iota + 1
+          Monday
+          Tuesday
+  )
+
+  func (w Weekday) Display() string {
+          switch {
+          case w == 1:
+                  return "Sunday"
+          case w == 2:
+                  return "Monday"
+          case w == 3:
+                  return "Tuesday"
+          }
+          return "Invalid date"
+  }
+
+  func main() {
+          fmt.Printf("%v \n", Monday.Display());
+          fmt.Printf("%v \n", Sunday.Display());
+  }
+#+end_src
+
+#+RESULTS:
+: Monday
+: Sunday
+
+We can create method on both value and pointer.
+
+* Interfaces and other types
+
+- Interfaces in Go provide a way to specify the behavior of an object:
+  if something can do this, then it can be used here.
+- Example:
+
+#+begin_src go :imports '("fmt") :results output :exports both
+  type Sequence []int
+
+  // Copy returns a copy of the Sequence.
+  func (s Sequence) Copy() Sequence {
+      copy := make(Sequence, 0, len(s))
+      return append(copy, s...)
+  }
+
+  func main() {
+          var s Sequence
+          s = make(Sequence, 3)
+          s[0] = 1
+
+          var v Sequence
+          v = s.Copy()
+
+          fmt.Printf("%v\n", s)
+          fmt.Printf("%v\n", v)
+  }
+#+end_src
+
+#+RESULTS:
+: [1 0 0]
+: [1 0 0]
+
+* Conversions
+
+#+begin_src go :imports '("fmt") :results output :exports both
+  type Sequence []int
+
+  // Copy returns a copy of the Sequence.
+  func (s Sequence) Copy() Sequence {
+      copy := make(Sequence, 0, len(s))
+      return append(copy, s...)
+  }
+
+  func (s Sequence) String() string {
+          s = s.Copy();
+          return fmt.Sprint([]int(s))
+  }
+
+  func main() {
+          var s Sequence
+          s = make(Sequence, 3)
+          s[0] = 1
+
+          fmt.Printf("%v\n", s.String())
+  }
+#+end_src
+
+#+RESULTS:
+: [1 0 0]
+
+* Interface conversions and type assertions
+
+A type assertion takes an interface value and extracts from it a value
+of the specified explicit type.
+
+#+begin_src go-ts
+value.(typeName)
+#+end_src
+
+* Interfaces and methods
+
+#+begin_src go :imports '("fmt" "math") :results output :exports both
+  type geometry interface {
+          area() float64
+          perim() float64
+  }
+
+  type circle struct {
+          radius float64
+  }
+
+  func (c circle) area() float64 {
+          return math.Pi * c.radius * c.radius
+  }
+
+  func (c circle) perim() float64 {
+          return math.Pi * c.radius * 2
+  }
+
+  func main() {
+          var c circle = circle{radius: 5}
+          fmt.Printf("area %v", c.area())
+  }
+#+end_src
+
+#+RESULTS:
+: area 78.53981633974483
+
+* The Blank Identifier
+
+- Used when a dummy variable is required and the value is not used.
+- Unused imports (for side effects)
+- Unused variables (for debugging)
+
+* Embedding
+
+Go does not provide the typical, type-driven notion of subclassing,
+but it does have the ability to “borrow” pieces of an implementation
+by embedding types within a struct or interface.
+
+https://gobyexample.com/struct-embedding

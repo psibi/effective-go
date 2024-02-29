@@ -1,0 +1,316 @@
+* Functions
+
+** Multiple return values
+
+- One of Go's unusual features is that functions and methods can
+  return multiple values.
+- The signature of the Write method on files from package os is:
+
+#+begin_src go-ts
+func (file *File) Write(b []byte) (n int, err error)
+#+end_src
+
+** Named result (or output) parameters
+
+- The return or result ~parameters~ of a Go function can be given
+  names and used as regular variables, just like the incoming
+  variables.
+- When named, they are initialized to the zero values for their types
+  when the function begins.
+- If the function executes a return statement with no arguments, the
+  current values of the result parameters are used as the returned
+  values.
+- The names are not mandatory but they can make code shorter and
+  clearer: they're documentation.
+
+Example code:
+
+#+begin_src go-ts
+func ReadFull(r Reader, buf []byte) (n int, err error) {
+    for len(buf) > 0 && err == nil {
+        var nr int
+        nr, err = r.Read(buf)
+        n += nr
+        buf = buf[nr:]
+    }
+    return
+}
+#+end_src
+
+** Defer
+
+- Go's *defer* statement schedules a function call (the deferred
+  function) to be run immediately before the function executing the
+  defer returns.
+
+Example code:
+
+#+begin_src go-ts
+  // Contents returns the file's contents as a string.
+  func Contents(filename string) (string, error) {
+      f, err := os.Open(filename)
+      if err != nil {
+          return "", err
+      }
+      defer f.Close()  // f.Close will run when we're finished.
+
+      // Now do something with the file handle
+
+      // Return some data
+  }
+#+end_src
+
+- You can also defer multiple function executions:
+
+#+begin_src go :imports '("fmt")
+for i := 0; i < 5; i++ {
+    defer fmt.Printf("%d ", i)
+}
+#+end_src
+
+#+RESULTS:
+: 4 3 2 1 0
+
+- Deferred functions are executed in LIFO order. So the above code
+  will cause ~4 3 2 1 0~ to be printed when the function returns.
+
+* Data
+
+** Allocation with new
+
+- Go has two allocation primtivies
+  - *new* and *make*
+- *new*
+  - Allocates memory
+  - Does *not* initialize memory, it only *zeros* it.
+  - ~new(T)~ allocates zeroed storage for a item of type *T* and
+    returns it's address which can be referenced by ~*T~ which is it's
+    value.
+
+** Constructors and composite literals
+
+Code like this has lots of boilerplate:
+
+#+begin_src go
+func NewFile(fd int, name string) *File {
+    if fd < 0 {
+        return nil
+    }
+    f := new(File)
+    f.fd = fd
+    f.name = name
+    f.dirinfo = nil
+    f.nepipe = 0
+    return f
+}
+#+end_src
+
+You can simplify it using ~Composite literals~ which is an expression
+that crates a new instance each time it is evaluated:
+
+#+begin_src go
+func NewFile(fd int, name string) *File {
+    if fd < 0 {
+        return nil
+    }
+    f := File{fd, name, nil, 0}
+    return &f
+}
+#+end_src
+
+Note that, unlike in C, it's perfectly OK to return the address of a
+local variable; the storage associated with the variable survives
+after the function returns.
+
+** Allocation with make
+
+- The built-in function ~make(T, args)~ serves a purpose different from
+  new function.
+- It creates slices, maps, and channels only, and it returns an
+  initialized (not zeroed) value of type T (not *T).
+- The reason for the distinction is that these three types represent,
+  under the covers, references to data structures that must be
+  initialized before use.
+- A slice, for example, is a three-item descriptor containing a
+  pointer to the data (inside an array), the length, and the capacity,
+  and until those items are initialized, the slice is nil. For slices,
+  maps, and channels, make initializes the internal data structure and
+  prepares the value for use.
+
+#+begin_src go
+make([]int, 10, 100)
+#+end_src
+
+Observation:
+- Allocates an array of 100 ints
+- Creates a slice structure of length 10 and capacity of 100
+
+Difference between new and make:
+
+#+begin_src go
+var p *[]int = new([]int)       // allocates slice structure; *p == nil; rarely useful
+var v  []int = make([]int, 100) // the slice v now refers to a new array of 100 ints
+
+// Unnecessarily complex:
+var p *[]int = new([]int)
+*p = make([]int, 100, 100)
+
+// Idiomatic:
+v := make([]int, 100)
+#+end_src
+
+* Arrays
+
+There are major differences between the ways arrays work in Go and C. In Go,
+
+- Arrays are values. Assigning one array to another copies all the
+  elements.
+- In particular, if you pass an array to a function, it will receive a
+  copy of the array, not a pointer to it.
+- The size of an array is part of its type. The types [10]int and
+  [20]int are distinct.
+
+* Slices
+
+- Slices wrap arrays to give a more general, powerful, and convenient
+  interface to sequences of data.
+- If a function takes a slice argument, changes it makes to the
+  elements of the slice will be visible to the caller, analogous to
+  passing a pointer to the underlying array.
+
+Two built in functions:
+- *cap*: Returns the capacity of the slice. If slice is nil, returns 0.
+- *len*: Returns the length of the slice. If slice is nill, returns 0.
+
+Sample code using slice:
+
+#+begin_src go :imports '("fmt") :results output
+v := make([] int, 2)
+
+v[1] = 2
+
+fmt.Printf("%d ", v[0])
+fmt.Printf("%d ", v[1])
+#+end_src
+
+#+RESULTS:
+: 0 2
+
+* Two-dimensional slices
+
+Go's arrays and slices are one-dimensional. To create the equivalent
+of a 2D array or slice, it is necessary to define an array-of-arrays
+or slice-of-slices, like this:
+
+#+begin_src go
+type Transform [3][3]float64  // A 3x3 array, really an array of arrays.
+type LinesOfText [][]byte     // A slice of byte slices.
+#+end_src
+
+* Maps
+
+- Built in data structure that associates value of one type (the key)
+  with values of another type (the element or value).
+- Can be constructed using composite literal syntax during
+  initalization.
+- An attempt to fetch a map value with a key that is not present in
+  the map will return the zero value for the type of the entries in
+  the map. So you're basically screwed if the map's value is actually
+  zero.
+
+#+begin_src go :imports '("fmt") :results output
+var timeZone = map[string]int{
+    "UTC":  0*60*60,
+    "EST": -5*60*60,
+    "CST": -6*60*60,
+    "MST": -7*60*60,
+    "PST": -8*60*60,
+}
+
+fmt.Printf("%d ", timeZone["EST"])
+fmt.Printf("%d ", timeZone["UTC"])
+fmt.Printf("%d ", timeZone["INVALID_KEY"])
+#+end_src
+
+#+RESULTS:
+: -18000 0 0
+
+To solve the above issue, they have a *comma ok* idiom:
+
+#+begin_src go :results output
+  package main
+
+  import "fmt"
+  import "log"
+
+  var timeZone = map[string]int{
+          "UTC":  0*60*60,
+          "EST": -5*60*60,
+          "CST": -6*60*60,
+          "MST": -7*60*60,
+          "PST": -8*60*60,
+  }
+
+  func offset(tz string) int {
+          if seconds, ok := timeZone[tz]; ok {
+                  return seconds
+          }
+          log.Println("unknown time zone:", tz)
+          return 0
+  }
+
+  func main() {
+          var utc int = offset("UTC")
+          var unknown int = offset("UNKNOWN_KEY")
+          fmt.Printf("%d ", utc)
+          fmt.Printf("%d ", unknown)
+  }
+#+end_src
+
+#+RESULTS:
+: 0 0
+
+* Printing
+
+- Functions live in the *fmt* package
+- Format String
+  - ~%d~: Numeric format
+  - ~%v~: Catchall format - uses default conversion.
+  - ~%+v~: Annotates the field of structs with their names.
+  - ~%#v~: Prints the value in full Go Syntax.
+
+* Append
+
+- Function signature:
+
+#+begin_src go
+func append(slice []T, elements ...T) []T
+#+end_src
+
+- Has special compiler support.
+
+#+begin_src go :imports '("fmt") :results output :exports both
+var test string = "hello"
+var test2 []string
+var test3 []string
+
+test2 = make([]string, 2)
+test2[0] = "hello"
+test2[1] = "hi"
+
+fmt.Printf("%v\n", test)
+fmt.Printf("%v\n", test2)
+fmt.Printf("%v\n", test3)
+
+test3 = append(test2, "dell")
+fmt.Printf("%v\n", test2)
+
+test2 = append(test2, "dell")
+fmt.Printf("%v\n", test2)
+#+end_src
+
+#+RESULTS:
+: hello
+: [hello hi]
+: []
+: [hello hi]

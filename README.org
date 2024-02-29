@@ -1,0 +1,10 @@
+* Introduction
+
+This is my summary of [[https://go.dev/doc/effective_go][Effective Go]] by Rob Pike.
+
+* Chapters
+
+- [[file:chapter1.org][chapter 1]]
+- [[file:chapter2.org][chapter 2]]
+- [[file:chapter3.org][chapter 3]]
+- [[file:chapter4.org][chapter 4]]
